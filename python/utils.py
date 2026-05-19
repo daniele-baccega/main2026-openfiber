@@ -57,7 +57,7 @@ def parse_arguments():
     parser.add_argument('--inject_indicator_periods', nargs='+', type=str, default=None, help='List of period boundaries in format: start1 end1 start2 end2 start3 end3 (each as YYYY-MM-DD HH:MM:SS)')
     parser.add_argument('--inject_indicator_types', nargs='+', type=str, default=None, help='List of injection types for each period (e.g., serie_a champions serie_a)')
     parser.add_argument('--traffic_threshold', type=float, default=None, help='Traffic threshold in percentage of capacity (e.g., 80 for 80%)')
-    parser.add_argument('--percentile', type=int, default=99, help='Percentile for prediction intervals (default: 99)')
+    parser.add_argument('--prediction_interval', type=int, default=98, help='Prediction interval for forecast (default: 98)')
     parser.add_argument('--plot_pdfcdf', action='store_true', help='Plot PDF/CDF distributions (default: False for faster computation)')
     parser.add_argument('--use_single_kde', action='store_true', help='Use single KDE distribution from all training residuals instead of indicator-based distributions')
     parser.add_argument('--print_aggregate_statistics', action='store_true', help='Print aggregate statistics and save to CSV')
@@ -679,14 +679,14 @@ def get_closest_kde(kde_dict_tunnel, indicator_val):
     closest_ind = min(available_indicators, key=lambda x: abs(x - indicator_val))
     return kde_dict_tunnel[closest_ind], closest_ind
 
-def sample_from_kde(kde, num_samples=1000, percentile=99):
+def sample_from_kde(kde, num_samples=1000, prediction_interval=98):
     """
         Sample from a KDE distribution and compute statistics.
         
         Args:
             kde: KDE object (from scipy.stats.gaussian_kde) or None
             num_samples: number of samples to draw (default: 100)
-            percentile: percentile for interval computation (default: 99 for 1st and 99th percentiles)
+            prediction_interval: prediction interval for interval computation (default: 98 for 1st and 99th percentiles)
         
         Returns:
             tuple: (mean, q_low, q_high) computed from samples, or (0.0, 0.0, 0.0) if kde is None
@@ -694,8 +694,8 @@ def sample_from_kde(kde, num_samples=1000, percentile=99):
     
     samples = kde.resample(num_samples)[0]
     mean_val = np.mean(samples)
-    q_low = np.percentile(samples, 100 - percentile)
-    q_high = np.percentile(samples, percentile)
+    q_low = np.percentile(samples, (100 - prediction_interval) / 2)
+    q_high = np.percentile(samples, 100 - (100 - prediction_interval) / 2)
     return mean_val, q_low, q_high
 
 def forecast_trend_carry_forward(train_values, forecast_times):
@@ -773,7 +773,7 @@ def generate_tunnel_forecast(train_data, past_day_data, forecast_date_midnight, 
                             tunnel_name, kde_dict_serie_a, kde_dict_champions, single_kde, no_match_kde_dict,
                             use_single_kde, matches_serie_a_dict, matches_champions_dict, injection_periods,
                             forecast_days, output_dir, plot_tunels, plot_pdfcdf, inject_indicator_values, 
-                            traffic_threshold, percentile, original_full):
+                            traffic_threshold, prediction_interval, original_full):
     """
         Generate forecast for a single tunnel.
         
@@ -788,7 +788,7 @@ def generate_tunnel_forecast(train_data, past_day_data, forecast_date_midnight, 
             matches_serie_a_dict, matches_champions_dict, matches_dict: indicator mappings
             injection_periods: list of (value, start, end) tuples for indicator injection
             forecast_days, output_dir, plot_tunels, plot_pdfcdf: parameters
-            inject_indicator_values, traffic_threshold, percentile: forecast parameters
+            inject_indicator_values, traffic_threshold, prediction_interval: forecast parameters
             original_full: full original dataset for ground truth extraction in forecast period
         
         Returns:
@@ -934,18 +934,18 @@ def generate_tunnel_forecast(train_data, past_day_data, forecast_date_midnight, 
         base_pred = trend_val + seasonal_val
         
         if use_single_kde:
-            residual_mean, residual_q_low, residual_q_high = sample_from_kde(single_kde, num_samples=1000, percentile=percentile)
+            residual_mean, residual_q_low, residual_q_high = sample_from_kde(single_kde, num_samples=1000, prediction_interval=prediction_interval)
         else:
             no_match_kde = no_match_kde_dict.get(tunnel_name) if no_match_kde_dict else None
 
             if indicator_val_serie_a == 0 and indicator_val_champions == 0 and no_match_kde is not None:
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(no_match_kde, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(no_match_kde, num_samples=1000, prediction_interval=prediction_interval)
             elif indicator_val_champions > 0:
                 kde_champions, _ = get_closest_kde(kde_dict_champions[tunnel_name], indicator_val_champions)
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_champions, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_champions, num_samples=1000, prediction_interval=prediction_interval)
             else:
                 kde_serie_a, _ = get_closest_kde(kde_dict_serie_a[tunnel_name], indicator_val_serie_a)
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_serie_a, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_serie_a, num_samples=1000, prediction_interval=prediction_interval)
         
         forecast_mean[t] = np.clip(base_pred + residual_mean, 0, 100)
         forecast_q_low[t] = np.clip(base_pred + residual_q_low, 0, 100)
@@ -959,7 +959,7 @@ def generate_tunnel_forecast(train_data, past_day_data, forecast_date_midnight, 
                                       forecast_mean, forecast_q_low, forecast_q_high,
                                       tunnel_name, forecast_date_midnight, output_dir,
                                       inject_indicator_values=inject_indicator_values,
-                                      traffic_threshold=traffic_threshold, percentile=percentile,
+                                      traffic_threshold=traffic_threshold, prediction_interval=prediction_interval,
                                       future_indicators_serie_a=future_indicators_serie_a, 
                                       future_indicators_champions=future_indicators_champions,
                                       past_indicators_serie_a=past_day_indicators_serie_a, 
@@ -1014,8 +1014,8 @@ def detect_large_gaps_in_future_data(future_truth, max_consecutive_missing_days=
 def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_data, forecast_date_midnight, forecast_end,
                                  kde_dict_serie_a_agg, kde_dict_champions_agg, single_kde_agg, no_match_kde_agg,
                                  use_single_kde,
-                                 matches_serie_a_dict, matches_champions_dict, matches_dict, injection_periods,
-                                 forecast_days, output_dir, inject_indicator_values, traffic_threshold, percentile, original_full_agg):
+                                 matches_serie_a_dict, matches_champions_dict, injection_periods,
+                                 forecast_days, output_dir, inject_indicator_values, traffic_threshold, prediction_interval, original_full_agg):
     """
         Generate aggregated forecast across all tunnels.
         
@@ -1032,7 +1032,7 @@ def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_d
             output_dir: directory to save output files
             inject_indicator_values: list of indicator values to inject
             traffic_threshold: traffic threshold for exceedance
-            percentile: percentile for forecast interval
+            prediction_interval: prediction interval for forecast
             original_full_agg: full aggregated data including forecast period (for ground truth extraction)
         
         Returns:
@@ -1160,7 +1160,7 @@ def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_d
         base_pred = trend_val + seasonal_val
         
         if use_single_kde:
-            residual_mean, residual_q_low, residual_q_high = sample_from_kde(single_kde_agg, num_samples=1000, percentile=percentile)
+            residual_mean, residual_q_low, residual_q_high = sample_from_kde(single_kde_agg, num_samples=1000, prediction_interval=prediction_interval)
         else:
             indicator_val_serie_a = int(future_indicators_serie_a_agg[t]) if has_data_at_t else int(future_indicators_serie_a_agg[t])
             indicator_val_champions = int(future_indicators_champions_agg[t]) if has_data_at_t else int(future_indicators_champions_agg[t])
@@ -1171,13 +1171,13 @@ def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_d
                 indicator_val_champions = int(np.round(float(row.get('Indicator_Champions', 0))))
 
             if indicator_val_serie_a == 0 and indicator_val_champions == 0 and no_match_kde_agg is not None:
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(no_match_kde_agg, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(no_match_kde_agg, num_samples=1000, prediction_interval=prediction_interval)
             elif indicator_val_champions > 0:
                 kde_champions, _ = get_closest_kde(kde_dict_champions_agg['AGGREGATED_ALL_TUNNELS'], indicator_val_champions)
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_champions, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_champions, num_samples=1000, prediction_interval=prediction_interval)
             else:
                 kde_serie_a, _ = get_closest_kde(kde_dict_serie_a_agg['AGGREGATED_ALL_TUNNELS'], indicator_val_serie_a)
-                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_serie_a, num_samples=1000, percentile=percentile)
+                residual_mean, residual_q_low, residual_q_high = sample_from_kde(kde_serie_a, num_samples=1000, prediction_interval=prediction_interval)
         
         forecast_mean_agg[t] = np.clip(base_pred + residual_mean, 0, 100)
         forecast_q_low_agg[t] = np.clip(base_pred + residual_q_low, 0, 100)
@@ -1188,7 +1188,7 @@ def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_d
                                            forecast_mean_agg, forecast_q_low_agg, forecast_q_high_agg,
                                            'AGGREGATED_ALL_TUNNELS', forecast_date_midnight, output_dir,
                                            inject_indicator_values=inject_indicator_values,
-                                           traffic_threshold=traffic_threshold, percentile=percentile,
+                                           traffic_threshold=traffic_threshold, prediction_interval=prediction_interval,
                                            future_indicators_serie_a=future_indicators_serie_a_agg, future_indicators_champions=future_indicators_champions_agg,
                                            past_indicators_serie_a=past_day_indicators_serie_a_agg, past_indicators_champions=past_day_indicators_champions_agg,
                                            use_single_kde=use_single_kde,
@@ -1198,7 +1198,7 @@ def generate_aggregated_forecast(agg_train_data, agg_past_day_data, agg_future_d
 
 def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecast_end, matches_serie_a_dict, matches_champions_dict, 
                                 matches_dict, use_single_kde, plot_pdfcdf, plot_tunels, output_dir, inject_indicator_values, 
-                                injection_periods, traffic_threshold, percentile, results_dir, forecast_days, original_full_agg):
+                                injection_periods, traffic_threshold, prediction_interval, results_dir, forecast_days, original_full_agg):
     """
         Perform aggregated analysis across all tunnels and save results.
         
@@ -1216,7 +1216,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
             inject_indicator_values: list of indicator values to inject
             injection_periods: list of injection periods
             traffic_threshold: traffic threshold for exceedance
-            percentile: percentile for prediction intervals
+            prediction_interval: prediction interval for forecast
             results_dir: directory to save results
             forecast_days: number of days to forecast
             original_full_agg: full aggregated data including forecast period (for ground truth extraction)
@@ -1268,7 +1268,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
                     agg_train_data, agg_past_day_data, agg_future_data, forecast_date_midnight, forecast_end,
                     None, None, single_kde_agg, no_match_kde_agg, use_single_kde,
                     matches_serie_a_dict, matches_champions_dict, matches_dict, injection_periods,
-                    forecast_days, output_dir, inject_indicator_values, traffic_threshold, percentile, original_full_agg
+                    forecast_days, output_dir, inject_indicator_values, traffic_threshold, prediction_interval, original_full_agg
                 )
                 
                 if threshold_df_agg is not None:
@@ -1304,7 +1304,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
                     agg_train_data, agg_past_day_data, agg_future_data, forecast_date_midnight, forecast_end,
                     kde_dict_serie_a_agg, kde_dict_champions_agg, None, no_match_kde_agg, use_single_kde,
                     matches_serie_a_dict, matches_champions_dict, matches_dict, injection_periods,
-                    forecast_days, output_dir, inject_indicator_values, traffic_threshold, percentile, original_full_agg
+                    forecast_days, output_dir, inject_indicator_values, traffic_threshold, prediction_interval, original_full_agg
                 )
                 
                 if threshold_df_agg is not None:
@@ -1325,7 +1325,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
         os.makedirs(results_dir, exist_ok=True)
         
         if traffic_threshold is not None:
-            thresh_dir = os.path.join(results_dir, f"Thresh_{traffic_threshold:.0f}_Perc{percentile}")
+            thresh_dir = os.path.join(results_dir, f"Thresh_{traffic_threshold:.0f}_Perc{prediction_interval}")
             os.makedirs(thresh_dir, exist_ok=True)
         else:
             thresh_dir = results_dir
@@ -1339,7 +1339,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
     return all_threshold_exceeds_agg, all_metrics_agg
 
 def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champions, forecast_date, forecast_days, original_full, original_full_agg, plot_tunels=False, output_dir='./plots/', 
-                                   inject_indicator_values=None, inject_indicator_periods=None, inject_indicator_types=None, traffic_threshold=None, percentile=99, plot_pdfcdf=False, results_dir='./results/', use_single_kde=False):
+                                   inject_indicator_values=None, inject_indicator_periods=None, inject_indicator_types=None, traffic_threshold=None, prediction_interval=98, plot_pdfcdf=False, results_dir='./results/', use_single_kde=False):
     """
         Generate forecasts from specific dates.
         
@@ -1354,7 +1354,7 @@ def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champi
             inject_indicator_periods: list of period boundaries (e.g., [start1, end1, start2, end2, ...])
             inject_indicator_types: list of injection types (optional, deprecated, types now in injection_periods)
             traffic_threshold: traffic threshold for plotting (optional)
-            percentile: percentile for prediction intervals (default: 99)
+            prediction_interval: prediction interval for forecast (default: 98)
             use_single_kde: if True, use single KDE from all residuals; if False, use indicator-based KDEs from combined matches
             original_full: full original time series data for ground truth in forecast period
     """
@@ -1488,7 +1488,7 @@ def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champi
             use_single_kde,
             matches_serie_a_dict, matches_champions_dict, injection_periods,
             forecast_days, output_dir, plot_tunels, plot_pdfcdf, inject_indicator_values,
-            traffic_threshold, percentile, original_full
+            traffic_threshold, prediction_interval, original_full
         )
         
         # Accumulate threshold exceeds and metrics from each tunnel
@@ -1507,7 +1507,7 @@ def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champi
         matches_serie_a_dict, matches_champions_dict, matches_dict,
         use_single_kde, plot_pdfcdf, plot_tunels, output_dir,
         inject_indicator_values, injection_periods, traffic_threshold,
-        percentile, results_dir, forecast_days, original_full_agg
+        prediction_interval, results_dir, forecast_days, original_full_agg
     )
     
     # Append aggregated results to main threshold exceeds and metrics lists
@@ -1519,7 +1519,7 @@ def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champi
         print("\n" + "="*80)
         print("Aggregating and saving PICP/PINAW metrics...")
         print("="*80)
-        aggregate_forecast_metrics(all_metrics, output_dir=results_dir, percentile=percentile, 
+        aggregate_forecast_metrics(all_metrics, output_dir=results_dir, prediction_interval=prediction_interval, 
                                    use_single_kde=use_single_kde, forecast_date=forecast_date, 
                                    forecast_days=forecast_days)
     else:

@@ -20,7 +20,7 @@
      --inject_indicator_periods:    inject indicator periods during forecasting
      --inject_indicator_types:      inject indicator types during forecasting
      --traffic_threshold:           traffic threshold for indicator injection
-     --percentile:                  percentile for thresholding
+     --prediction_interval:         prediction interval for thresholding
      --plot_pdfcdf:                 whether to plot PDF and CDF of forecasts
      --use_single_kde:              whether to use a single KDE for all tunnels when plotting PDF/CDF
      --print_aggregate_statistics:  whether to compute and print aggregate statistics on all tunnels
@@ -189,7 +189,7 @@ if args.forecast_date:
                                   inject_indicator_periods=args.inject_indicator_periods,
                                   inject_indicator_types=args.inject_indicator_types,
                                   traffic_threshold=args.traffic_threshold,
-                                  percentile=args.percentile,
+                                  prediction_interval=args.prediction_interval,
                                   plot_pdfcdf=args.plot_pdfcdf,
                                   results_dir=results_dir,
                                   use_single_kde=args.use_single_kde)

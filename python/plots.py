@@ -241,14 +241,14 @@ def pinaw(y_true, lower_bounds, upper_bounds):
         return 0
     return np.mean(interval_width) / range_y_true
 
-def aggregate_forecast_metrics(metrics_list, output_dir='./results/', percentile=99, use_single_kde=False, forecast_date=None, forecast_days=7):
+def aggregate_forecast_metrics(metrics_list, output_dir='./results/', prediction_interval=98, use_single_kde=False, forecast_date=None, forecast_days=7):
     """
         Aggregate PICP and PINAW metrics across all tunnels and save to CSV.
         
         Args:
             metrics_list: list of metrics dictionaries returned by plot_date_forecast()
             output_dir: directory to save the aggregated metrics CSV
-            percentile: percentile used in forecasting (default: 99)
+            prediction_interval: prediction interval used in forecasting (default: 98)
             use_single_kde: whether single KDE mode was used (default: False)
             forecast_date: date of the forecast (for directory naming)
             forecast_days: number of days forecasted (for directory naming)
@@ -280,12 +280,12 @@ def aggregate_forecast_metrics(metrics_list, output_dir='./results/', percentile
     else:
         forecast_date_str = 'NoDate'
     
-    exp_dir_name = f'Perc{percentile}{kde_suffix}_D{forecast_date_str}_F{forecast_days}d'
+    exp_dir_name = f'Perc{prediction_interval}{kde_suffix}_D{forecast_date_str}_F{forecast_days}d'
     exp_output_dir = os.path.join(output_dir, exp_dir_name)
     os.makedirs(exp_output_dir, exist_ok=True)
     
     # Build filenames with experiment details
-    filename_suffix = f'_Perc{percentile}_{kde_suffix}_D{forecast_date_str}_F{forecast_days}d'
+    filename_suffix = f'_Perc{prediction_interval}_{kde_suffix}_D{forecast_date_str}_F{forecast_days}d'
     
     # Round numeric columns to 3 decimal places
     df_metrics_rounded = df_metrics.copy()
@@ -352,7 +352,7 @@ def aggregate_forecast_metrics(metrics_list, output_dir='./results/', percentile
 
 def plot_date_forecast(forecast_days, past_times, past_vals, future_times, future_truth, forecast_mean, forecast_q_low, forecast_q_high,
                        tunnel_name, forecast_date, output_dir='./plots/', inject_indicator_values=None,
-                       traffic_threshold=None, percentile=99, future_indicators_serie_a=None, future_indicators_champions=None,
+                       traffic_threshold=None, prediction_interval=98, future_indicators_serie_a=None, future_indicators_champions=None,
                        past_indicators_serie_a=None, past_indicators_champions=None, use_single_kde=False, injection_periods=None):
     """
         Plot date forecast for a tunnel, including ground truth, prediction intervals, and indicators. Compute PICP if ground truth is available
@@ -364,13 +364,13 @@ def plot_date_forecast(forecast_days, past_times, past_vals, future_times, futur
             future_times: timestamps for future data
             future_truth: ground truth values for future data
             forecast_mean: forecasted mean values for future data
-            forecast_q_low: forecasted low percentile values for future data (e.g., 1st percentile for percentile=99)
+            forecast_q_low: forecasted low percentile values for future data (e.g., 1st percentile for prediction_interval=98)
             forecast_q_high: forecasted high percentile values for future data (e.g., 99th percentile)
             tunnel_name: name of the tunnel
             forecast_date: date of the forecast
             output_dir: directory to save plots
             inject_indicator_values: indicator values injected during forecasting (optional)
-            percentile: percentile for prediction intervals (default: 99)
+            prediction_interval: prediction interval for forecast (default: 98)
             future_indicators_serie_a: Serie A indicator values for future data (optional)
             future_indicators_champions: Champions League indicator values for future data (optional)
             past_indicators_serie_a: Serie A indicator values for past data (optional)
@@ -382,9 +382,9 @@ def plot_date_forecast(forecast_days, past_times, past_vals, future_times, futur
     # Build DateForecasts directory name with threshold, percentile, and KDE mode
     kde_suffix = '_SingleKDE' if use_single_kde else ''
     if traffic_threshold is not None:
-        forecast_dir_name = f'DateForecasts_Thresh{int(traffic_threshold)}_Perc{percentile}{kde_suffix}'
+        forecast_dir_name = f'DateForecasts_Thresh{int(traffic_threshold)}_Perc{prediction_interval}{kde_suffix}'
     else:
-        forecast_dir_name = f'DateForecasts_Perc{percentile}{kde_suffix}'
+        forecast_dir_name = f'DateForecasts_Perc{prediction_interval}{kde_suffix}'
     
     os.makedirs(os.path.join(output_dir, forecast_dir_name, tunnel_name), exist_ok=True)
 
@@ -698,8 +698,8 @@ def plot_date_forecast(forecast_days, past_times, past_vals, future_times, futur
     inject_suffix = f"_inject_{'_'.join(map(str, inject_indicator_values))}" if inject_indicator_values else ""
     output_path = os.path.join(output_dir, forecast_dir_name, tunnel_name, f"forecast_{forecast_date.strftime('%Y-%m-%d')}_{forecast_days}d{inject_suffix}.png")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    # Use the percentile parameter directly in the forecast interval label
-    ci_label = f'Forecast {percentile:.0f}% PI'
+    # Use the prediction_interval parameter directly in the forecast interval label
+    ci_label = f'Forecast {prediction_interval}% PI'
 
     handles = [
         Line2D([0], [0], color='black', lw=1.5, label='Ground Truth'),
@@ -1315,27 +1315,27 @@ def compare_kde_modes(single_kde_metrics_path, indicator_kde_metrics_path, outpu
     return stats
 
 
-def compare_kde_modes_multi(results_dir, percentile, scenarios, output_dir=None):
+def compare_kde_modes_multi(results_dir, prediction_interval, scenarios, output_dir=None):
     """
         Compare PICP (matches) between SingleKDE and IndicatorKDE across scenarios.
         Scenarios are a list of (forecast_date, forecast_days) pairs.
     """
 
     if output_dir is None:
-        output_dir = os.path.join(results_dir, f"KDE_Comparison_Multi_Perc{percentile}")
+        output_dir = os.path.join(results_dir, f"KDE_Comparison_Multi_Perc{prediction_interval}")
     os.makedirs(output_dir, exist_ok=True)
 
     scenario_rows = []
     for forecast_date, forecast_days in scenarios:
         single_path = os.path.join(
             results_dir,
-            f"Perc{percentile}SingleKDE_D{forecast_date}_F{forecast_days}d",
-            f"forecast_metrics_individual_Perc{percentile}_SingleKDE_D{forecast_date}_F{forecast_days}d.csv",
+            f"Perc{prediction_interval}SingleKDE_D{forecast_date}_F{forecast_days}d",
+            f"forecast_metrics_individual_Perc{prediction_interval}_SingleKDE_D{forecast_date}_F{forecast_days}d.csv",
         )
         indicator_path = os.path.join(
             results_dir,
-            f"Perc{percentile}IndicatorKDE_D{forecast_date}_F{forecast_days}d",
-            f"forecast_metrics_individual_Perc{percentile}_IndicatorKDE_D{forecast_date}_F{forecast_days}d.csv",
+            f"Perc{prediction_interval}IndicatorKDE_D{forecast_date}_F{forecast_days}d",
+            f"forecast_metrics_individual_Perc{prediction_interval}_IndicatorKDE_D{forecast_date}_F{forecast_days}d.csv",
         )
 
         if not os.path.exists(single_path) or not os.path.exists(indicator_path):
