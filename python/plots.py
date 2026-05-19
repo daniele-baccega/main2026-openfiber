@@ -241,14 +241,14 @@ def pinaw(y_true, lower_bounds, upper_bounds):
         return 0
     return np.mean(interval_width) / range_y_true
 
-def aggregate_forecast_metrics(metrics_list, output_dir='./results/', prediction_interval=98, use_single_kde=False, forecast_date=None, forecast_days=7):
+def aggregate_forecast_metrics(metrics_list, output_dir='./results/', prediction_interval=99, use_single_kde=False, forecast_date=None, forecast_days=7):
     """
         Aggregate PICP and PINAW metrics across all tunnels and save to CSV.
         
         Args:
             metrics_list: list of metrics dictionaries returned by plot_date_forecast()
             output_dir: directory to save the aggregated metrics CSV
-            prediction_interval: prediction interval used in forecasting (default: 98)
+            prediction_interval: prediction interval used in forecasting (default: 99)
             use_single_kde: whether single KDE mode was used (default: False)
             forecast_date: date of the forecast (for directory naming)
             forecast_days: number of days forecasted (for directory naming)
@@ -352,7 +352,7 @@ def aggregate_forecast_metrics(metrics_list, output_dir='./results/', prediction
 
 def plot_date_forecast(forecast_days, past_times, past_vals, future_times, future_truth, forecast_mean, forecast_q_low, forecast_q_high,
                        tunnel_name, forecast_date, output_dir='./plots/', inject_indicator_values=None,
-                       traffic_threshold=None, prediction_interval=98, future_indicators_serie_a=None, future_indicators_champions=None,
+                       traffic_threshold=None, prediction_interval=99, future_indicators_serie_a=None, future_indicators_champions=None,
                        past_indicators_serie_a=None, past_indicators_champions=None, use_single_kde=False, injection_periods=None):
     """
         Plot date forecast for a tunnel, including ground truth, prediction intervals, and indicators. Compute PICP if ground truth is available
@@ -364,13 +364,13 @@ def plot_date_forecast(forecast_days, past_times, past_vals, future_times, futur
             future_times: timestamps for future data
             future_truth: ground truth values for future data
             forecast_mean: forecasted mean values for future data
-            forecast_q_low: forecasted low percentile values for future data (e.g., 1st percentile for prediction_interval=98)
+            forecast_q_low: forecasted low percentile values for future data (e.g., 1st percentile for prediction_interval=99)
             forecast_q_high: forecasted high percentile values for future data (e.g., 99th percentile)
             tunnel_name: name of the tunnel
             forecast_date: date of the forecast
             output_dir: directory to save plots
             inject_indicator_values: indicator values injected during forecasting (optional)
-            prediction_interval: prediction interval for forecast (default: 98)
+            prediction_interval: prediction interval for forecast (default: 99)
             future_indicators_serie_a: Serie A indicator values for future data (optional)
             future_indicators_champions: Champions League indicator values for future data (optional)
             past_indicators_serie_a: Serie A indicator values for past data (optional)

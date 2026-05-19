@@ -57,7 +57,7 @@ def parse_arguments():
     parser.add_argument('--inject_indicator_periods', nargs='+', type=str, default=None, help='List of period boundaries in format: start1 end1 start2 end2 start3 end3 (each as YYYY-MM-DD HH:MM:SS)')
     parser.add_argument('--inject_indicator_types', nargs='+', type=str, default=None, help='List of injection types for each period (e.g., serie_a champions serie_a)')
     parser.add_argument('--traffic_threshold', type=float, default=None, help='Traffic threshold in percentage of capacity (e.g., 80 for 80%)')
-    parser.add_argument('--prediction_interval', type=int, default=98, help='Prediction interval for forecast (default: 98)')
+    parser.add_argument('--prediction_interval', type=int, default=99, help='Prediction interval for forecast (default: 99)')
     parser.add_argument('--plot_pdfcdf', action='store_true', help='Plot PDF/CDF distributions (default: False for faster computation)')
     parser.add_argument('--use_single_kde', action='store_true', help='Use single KDE distribution from all training residuals instead of indicator-based distributions')
     parser.add_argument('--print_aggregate_statistics', action='store_true', help='Print aggregate statistics and save to CSV')
@@ -679,14 +679,14 @@ def get_closest_kde(kde_dict_tunnel, indicator_val):
     closest_ind = min(available_indicators, key=lambda x: abs(x - indicator_val))
     return kde_dict_tunnel[closest_ind], closest_ind
 
-def sample_from_kde(kde, num_samples=1000, prediction_interval=98):
+def sample_from_kde(kde, num_samples=1000, prediction_interval=99):
     """
         Sample from a KDE distribution and compute statistics.
         
         Args:
             kde: KDE object (from scipy.stats.gaussian_kde) or None
             num_samples: number of samples to draw (default: 100)
-            prediction_interval: prediction interval for interval computation (default: 98 for 1st and 99th percentiles)
+            prediction_interval: prediction interval for interval computation (default: 99 for 1st and 99th percentiles)
         
         Returns:
             tuple: (mean, q_low, q_high) computed from samples, or (0.0, 0.0, 0.0) if kde is None
@@ -1339,7 +1339,7 @@ def perform_aggregated_analysis(aggregated_data, forecast_date_midnight, forecas
     return all_threshold_exceeds_agg, all_metrics_agg
 
 def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champions, forecast_date, forecast_days, original_full, original_full_agg, plot_tunels=False, output_dir='./plots/', 
-                                   inject_indicator_values=None, inject_indicator_periods=None, inject_indicator_types=None, traffic_threshold=None, prediction_interval=98, plot_pdfcdf=False, results_dir='./results/', use_single_kde=False):
+                                   inject_indicator_values=None, inject_indicator_periods=None, inject_indicator_types=None, traffic_threshold=None, prediction_interval=99, plot_pdfcdf=False, results_dir='./results/', use_single_kde=False):
     """
         Generate forecasts from specific dates.
         
@@ -1354,7 +1354,7 @@ def generate_forecasts_from_dates(data, aggregated_data, matches, matches_champi
             inject_indicator_periods: list of period boundaries (e.g., [start1, end1, start2, end2, ...])
             inject_indicator_types: list of injection types (optional, deprecated, types now in injection_periods)
             traffic_threshold: traffic threshold for plotting (optional)
-            prediction_interval: prediction interval for forecast (default: 98)
+            prediction_interval: prediction interval for forecast (default: 99)
             use_single_kde: if True, use single KDE from all residuals; if False, use indicator-based KDEs from combined matches
             original_full: full original time series data for ground truth in forecast period
     """
