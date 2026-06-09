@@ -69,8 +69,6 @@ Parameters: 28-day window, top-10 components extracted
 - Identify groups of links with similar traffic dynamics
 - Use elbow criterion to determine optimal number of clusters
 
-**Finding**: Two main clusters emerge with clear geographic separation (northern/central vs. southern Italy)
-
 ### 3. Event Detection and Clustering
 **Step C1**: Anomalous segment extraction
 - Apply **FastMUOD** (Fast Multivariate Outlier Detection) to identify outlier days
@@ -99,14 +97,14 @@ Use statistical tests (Kolmogorov–Smirnov, Mann–Whitney U) to verify signifi
 - **Seasonal**: Repeat seasonality of final week
 - **Residual**: Monte Carlo sampling (1000 samples) from event-conditioned PDFs
 
-**Prediction intervals**: 99% confidence intervals $[q_{0.01}, q_{0.99}]$ computed from sampled residuals
+**Prediction intervals**: 98% confidence intervals $[q_{0.01}, q_{0.99}]$ computed from sampled residuals
 
 **Final forecast**: Sum trend + seasonal + residual bounds
 
 ### 6. Evaluation Metrics
 - **PICP** (Prediction Interval Coverage Probability): Fraction of observed values falling within prediction interval
   - Computed over full period and restricted to match time slots
-  - Target: 0.99 (99% coverage)
+  - Higher is better (values in [0, 1]) 
 
 - **PINAW** (Prediction Interval Normalized Average Width): Sharpness of intervals
   - Average interval width normalized by data range
